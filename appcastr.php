@@ -1,7 +1,7 @@
 <?php
 /**
  * Appcastr
- * Copyright (c) 2011 Richard Z.H. Wang
+ * Copyright (c) 2010-2011 Richard Z.H. Wang
  * 
  * This library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as
@@ -17,7 +17,7 @@
  * along with this license.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-$cache_filename = 'appcastr-cache.txt';
+$cache_filename = 'appcastr/cache';
 
 // Potential errors
 if (!isset($_GET['id']))
@@ -35,7 +35,7 @@ if (strstr($_GET['id'], '/') || strstr($_GET['id'], '\\'))
 	appcastr_die('Appcastr will not accept an id containing a slash.');
 }
 
-if (!file_exists('appcastr-' . $_GET['id'] . '.txt'))
+if (!file_exists('appcastr/' . $_GET['id']))
 {
 	appcastr_die('Appcastr couldn\'t find the file associated with the given id.');
 }
@@ -52,7 +52,7 @@ if (isset($_GET['sparkledotnet']))
 
 // Size cache
 // Format: id, next line is size, etc
-if (!file_exists('appcastr-cache.txt'))
+if (!file_exists($cache_filename))
 {
 	$cachearr = array();
 }
@@ -63,7 +63,7 @@ else
 $sc = fopen($cache_filename, 'a');
 
 // Item ids
-$iteminfos = file('appcastr-' . $_GET['id'] . '.txt');
+$iteminfos = file('appcastr/' . $_GET['id']);
 
 // Now let's get the ids
 $title = '';
