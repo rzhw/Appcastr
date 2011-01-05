@@ -80,38 +80,61 @@ if (isset($_GET['admin']))
 			appcastr_page('Admin panel', 'Logging you out...');
 		}
 		
-		// Appcasts
-		$strappcasts = '';
-		foreach ($data['appcasts'] as $appcast => $params)
+		switch ($_GET['section'])
 		{
-			$strappcasts .= '
-			<h3>' . $params['title'] . ' <a href="?admin&action=edit&id='.$appcast.'">(edit)</a> <a href="?id='.$appcast.'">(feed)</a></h3>
-			<p>ID: ' . $appcast . '
-			<br>Type: ' . $params['type'] . '
-			<br>Description: "' . $params['description'] . '"
-			
-			<h4>Items <a href="?admin&action=add&id='.$appcast.'">(add)</a></h4>
-			<ul>';
-			
-			foreach (get_items($appcast) as $item)
-			{
-				$strappcasts .= '<li>' . $item['title'];
-			}
-			
-			$strappcasts .= '</ul>';
+			case 'users':
+				$str = '<h2>Users</h2>
+				<ul>';
+				foreach ($data['users'] as $username => $passwordhash)
+				{
+					$str .= '<li>' . $username . ($username == $_SESSION['username'] ? ' <em>- that\'s you!</em>' : '');
+				}
+				$str .= '</ul>';
+				break;
+				
+			case 'appcasts':
+			default:
+				$str = '<h2>Appcasts</h2>';
+				foreach ($data['appcasts'] as $appcast => $params)
+				{
+					$str .= '
+					<h3>' . $params['title'] . '
+						<a class="button" href="' . curPageURL() . '&action=edit&id='.$appcast.'">Edit</a>
+						<a class="button" href="?id='.$appcast.'">Feed</a></h3>
+					<p>ID: ' . $appcast . '
+					<br>Format: ' . $params['format'] . ($params['formatVersion'] ? ' ('.$params['formatVersion'].')' : '') . '
+					<br>Description: ' . ($params['description'] ? $params['description'] : '<em>No description</em>' ). '
+					
+					<h4>Items
+						<a class="button" href="' . curPageURL() . '&action=items&id='.$appcast.'">Edit</a></h4>
+					<ul>';
+					
+					foreach (get_items($appcast) as $item)
+					{
+						$str .= sprintf('<li>%s <small>- version %s, displayed as %s</small>
+							<a class="button" href="%s">Download</a> %s<br><blockquote>%s</blockquote>',
+							$item['title'],
+							$item['enclosure']['_params']['sparkle:version'],
+							$item['enclosure']['_params']['sparkle:shortVersionString'] ?
+								$item['enclosure']['_params']['sparkle:shortVersionString'] : $item['enclosure']['_params']['sparkle:version'],
+							$item['enclosure']['_params']['url'],
+							$item['sparkle:releaseNotesLink'] ?
+								'<a class="button" href="' . $item['sparkle:releaseNotesLink'] . '">(release notes)</a>'
+								: '<span class="button disabled">Release Notes</span>',
+							$item['description'] ? $item['description'] : '<em>No description</em>');
+					}
+					
+					$str .= '</ul>';
+				}
+				break;
 		}
 		
-		// Users
-		$strusers .= 'Hi';
-		
-		appcastr_page('Admin panel', '		
-		<h2>Appcasts</h2>
-		' . $strappcasts . '
-		
-		<h2>Users</h2>
-		' . $strusers. '
-		
-		<a id="logout" href="?admin&logout">Logout</a>');
+		appcastr_page('Admin panel', $str .'		
+		<div id="menu">
+			<a href="?admin&section=appcasts">Appcasts</a>
+			&middot; <a href="?admin&section=users">Users</a>
+			&middot; <a href="?admin&logout">Logout</a>
+		</div>');
 	}
 }
 
@@ -329,7 +352,6 @@ die('<!DOCTYPE html>
 <style type="text/css">
 
 body { background: #ebedea; color: #000; padding: 30px; font-size: 13px; font-family: "helvetica neue", helvetica, arial, sans-serif; }
-a { text-decoration: none; color: #4183C4; } a:hover { text-decoration: underline; }
 p, ul { margin: 8px 0; line-height: 20px; }
 ul { padding-left: 24px; }
 
@@ -338,9 +360,19 @@ h2 { font-size: 19px; margin: 24px 0 8px; color: #333; padding-bottom: 4px; bord
 h3 { font-size: 15px; margin: 8px 0; color: #333; }
 h4 { font-size: 14px; margin: 8px 0; color: #333; }
 
-.error { color: #f00; font-weight: bold; }
+a { text-decoration: none; color: #4183C4; } a:hover { text-decoration: underline; }
+.button, .button.disabled:hover { margin-left: 2px; padding: 2px 7px; background: #eee; border: 1px solid #ddd; color: #444;
+	font-size: 10px; font-weight: bold;
+	border-radius: 3px;
+	-moz-border-radius: 3px;
+	-webkit-border-radius: 3px; }
+.button:hover { text-decoration: none; background: #eaeaea; border: 1px solid #ccc; }
+.button.disabled, .button.disabled:hover { color: #aaa; }
 
-#logout { position: absolute; right: 10px; top: -32px; }
+.error { color: #f00; font-weight: bold; }
+blockquote { margin: 8px 0; padding: 12px; border: 1px dashed #ccc; }
+
+#menu { position: absolute; right: 10px; top: -32px; }
 
 #wrap { margin: 0 auto; width: 800px; }
 #content { position: relative; background: #fff; background: rgba(255,255,255,0.75); padding: 20px; border: 1px solid #dcdcea;
