@@ -17,6 +17,87 @@
  * along with this license.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+// CHANGE THIS FOR YOUR OWN INSTANCE OF APPCASTR!
+$salt = 'sdklfjsdkfjsdkljflsdfj';
+
+// We need to write, boy
+if (!is_writable('appcastr/'))
+{
+	appcastr_die('Appcastr doesn\'t have permissions to write to the <code>appcastr</code> directory.');
+}
+
+// Data
+$data = array();
+try
+{
+	$data = json_decode(file_get_contents('appcastr/data'), true);
+}
+catch (Exception $e)
+{
+	appcastr_die('Could not decode `appcastr/data`.<p>'.$e);
+}
+$olddata = $data;
+
+// Password hash
+if (isset($_GET['hash']))
+{
+	appcastr_page('Your hashed password', '<p>' . appcastr_password($_GET['hash']));
+}
+
+// Admin?
+if (isset($_GET['admin']))
+{
+	session_start();
+	
+	if (appcastr_password($_SESSION['password']) != $data['users'][$_SESSION['username']])
+	{
+		if (isset($_POST['login']) && appcastr_password($_POST['password']) == $data['users'][$_POST['username']])
+		{
+			$_SESSION['username'] = $_POST['username'];
+			$_SESSION['password'] = $_POST['password'];
+			header('Refresh: 0');
+			appcastr_page('Admin panel', 'Logging in...');
+		}
+		else
+		{
+			appcastr_page('Login to access the admin panel',
+			(isset($_POST['login']) ? '<p class="error">Username or password incorrect' : '') . '
+			<form action="" method="post">
+				<p><label for="username">Username:</label>
+				<input type="text" id="username" name="username">
+				<p><label for="password">Password:</label>
+				<input type="password" id="password" name="password">
+				<p><input type="submit" name="login" value="Login">
+			</form>');
+		}
+	}
+	else
+	{
+		if (isset($_GET['logout']))
+		{
+			session_destroy();
+			header('Refresh: 0');
+			appcastr_page('Admin panel', 'Logging you out...');
+		}
+		
+		$strappcasts = '';
+		foreach ($data['appcasts'] as $appcast => $params)
+		{
+			$strappcasts .= '
+			<h3>' . $params['title'] . ' <a href="?admin&edit='.$appcast.'">(edit)</a></h3>
+			<p>ID: ' . $appcast . '
+			<br>Type: ' . $params['type'] . '
+			<br>Description: "' . $params['description'] . '"';
+		}
+		
+		appcastr_page('Admin panel', '
+		<a id="logout" href="?admin&logout">Logout</a>
+		
+		<h2>Appcasts</h2>
+		' . $strappcasts . '');
+	}
+}
+
 // Potential errors
 if (!isset($_GET['id']))
 {
@@ -37,22 +118,6 @@ if (!file_exists('appcastr/' . $_GET['id']))
 {
 	appcastr_die('Appcastr couldn\'t find the file associated with the given id.');
 }
-
-if (!is_writable('appcastr/'))
-{
-	appcastr_die('Appcastr doesn\'t have permissions to write to the <code>appcastr</code> directory.');
-}
-
-$data = array();
-try
-{
-	$data = json_decode(file_get_contents('appcastr/data'), true);
-}
-catch (Exception $e)
-{
-	appcastr_die('Could not decode `appcastr/data`.<p>'.$e);
-}
-$olddata = $data;
 
 // Item ids
 $iteminfos = file('appcastr/' . $_GET['id']);
@@ -157,6 +222,14 @@ foreach ($iteminfos as $iteminfo)
 	}
 }
 
+// Any data changes?
+if ($data != $olddata)
+{
+	$dataf = fopen('appcastr/data', 'w+');
+	fwrite($dataf, json_encode($data));
+	fclose($dataf);
+}
+
 // We got everything! Now to print out a lovely, formatted feed
 echo '<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"'
@@ -205,29 +278,64 @@ function appcast_info($key)
 
 function appcastr_die($message)
 {
+	appcastr_page('Error!', '<p>' . $message);
+}
+
+function appcastr_page($title, $body)
+{
 die('<!DOCTYPE html>
 <html>
 <head>
-<title>Appcastr Error</title>
+<title>Appcastr</title>
 <style type="text/css">
-body { background: #eef; color: #000; padding: 40px; font-size: 14px; font-family: "helvetica neue", helvetica, arial, sans-serif; }
-h1 { font-size: 20px; margin: 0; padding: 0; }
-#content { background: #fff; padding: 20px; border: 1px solid #dcdcea;
-border-radius: 4px;
--moz-border-radius: 4px;
--webkit-border-radius: 4px; }
-footer { float: right; margin-right: 10px; }
-footer, footer a { color: #aaa; font-size: 10px; }
+
+body { background: #ebedea; color: #000; padding: 30px; font-size: 13px; font-family: "helvetica neue", helvetica, arial, sans-serif; }
+a { text-decoration: none; color: #4183C4; } a:hover { text-decoration: underline; }
+p { margin: 8px 0; }
+p, ul { line-height: 20px; }
+
+h1 { font-size: 20px; margin: 10px; padding: 0 0 4px 0; text-shadow: 0 1px 0 rgba(255,255,255,0.5); }
+h2 { font-size: 17px; margin: 4px 0; color: #333; }
+h3 { font-size: 14px; margin: 8px 0; color: #444; }
+
+.error { color: #f00; font-weight: bold; }
+
+#logout { float: right; position: relative; top: -56px; }
+
+#wrap { margin: 0 auto; width: 800px; }
+#content { background: #fff; background: rgba(255,255,255,0.5); padding: 20px; border: 1px solid #dcdcea;
+	box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+	border-radius: 4px;
+	-moz-border-radius: 4px;
+	-webkit-border-radius: 4px; }
+footer { float: right; margin-right: 10px; text-shadow: 0 1px 0 rgba(255,255,255,0.5); color: #aaa; font-size: 10px; }
+footer a { color: #888; }
+
+#background { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden; z-index: -1; }
+#background div:before { content: "\2668"; font-size: 1000px; opacity: 0.02;
+position: absolute; left: -100px; bottom: -380px; }
+#background div:after { content: "Appcastr."; font-size: 100px; opacity: 0.02;
+position: absolute; left: 500px; bottom: 40px; }
+
 </style>
 </head>
 <body>
+<div id="wrap">
+<h1>' . $title . '</h1>
 <div id="content">
-<h1>Error!</h1>
-<p>' . $message . '</p>
+' . $body . '
 </div>
 <footer><p>Appcastr 0.2 &copy; <a href="http://rewrite.name/">Richard Z.H. Wang</a> 2010-2011</footer>
+</div>
+<div id="background"><div></div></div>
 </body>
 </html>');
+}
+
+function appcastr_password($raw)
+{
+	global $salt;
+	return hash('whirlpool', $salt . $raw);
 }
 
 // Based on code from http://codesnippets.joyent.com/posts/show/1214
