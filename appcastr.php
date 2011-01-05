@@ -80,21 +80,38 @@ if (isset($_GET['admin']))
 			appcastr_page('Admin panel', 'Logging you out...');
 		}
 		
+		// Appcasts
 		$strappcasts = '';
 		foreach ($data['appcasts'] as $appcast => $params)
 		{
 			$strappcasts .= '
-			<h3>' . $params['title'] . ' <a href="?admin&edit='.$appcast.'">(edit)</a></h3>
+			<h3>' . $params['title'] . ' <a href="?admin&action=edit&id='.$appcast.'">(edit)</a> <a href="?id='.$appcast.'">(feed)</a></h3>
 			<p>ID: ' . $appcast . '
 			<br>Type: ' . $params['type'] . '
-			<br>Description: "' . $params['description'] . '"';
+			<br>Description: "' . $params['description'] . '"
+			
+			<h4>Items <a href="?admin&action=add&id='.$appcast.'">(add)</a></h4>
+			<ul>';
+			
+			foreach (get_items($appcast) as $item)
+			{
+				$strappcasts .= '<li>' . $item['title'];
+			}
+			
+			$strappcasts .= '</ul>';
 		}
 		
-		appcastr_page('Admin panel', '
-		<a id="logout" href="?admin&logout">Logout</a>
+		// Users
+		$strusers .= 'Hi';
 		
+		appcastr_page('Admin panel', '		
 		<h2>Appcasts</h2>
-		' . $strappcasts . '');
+		' . $strappcasts . '
+		
+		<h2>Users</h2>
+		' . $strusers. '
+		
+		<a id="logout" href="?admin&logout">Logout</a>');
 	}
 }
 
@@ -119,106 +136,65 @@ if (!file_exists('appcastr/' . $_GET['id']))
 	appcastr_die('Appcastr couldn\'t find the file associated with the given id.');
 }
 
-// Item ids
-$iteminfos = file('appcastr/' . $_GET['id']);
+// Our items
+$items = get_items($_GET['id']);
 
-// Now let's get the ids
-$title = '';
-$items = array();
-$i = 0;
-
-foreach ($iteminfos as $iteminfo)
+foreach ($items as &$item)
 {
-	$iteminfo = trim($iteminfo);
+	// Description
+	//$item['description'] = '<![CDATA[' . str_replace("\n", '<br>', $item['description']) . ']]>';
 	
-	// Did we just hit a separator?
-	if ($iteminfo == '---')
+	// Publish date
+	if (!isset($item['pubDate']))
 	{
-		$str = implode("\n", $itemarr[$i - 2]);
-		$json = array();
-		$description = '';
-		$fail = false;
-		
-		if (preg_match('/(\{(.*)\n\})(.*)/sm', $str, $regs))
+		$date = strtotime($item['date']);
+		if ($date === false)
 		{
-			$result = $regs[1];
-			$description = $regs[3];
-			
-			try
-			{
-				$json = json_decode($result, true);
-			}
-			catch (Exception $e)
-			{
-				$fail = true;
-			}
+			appcastr_die('Invalid date.');
 		}
 		else
 		{
-			$fail = true;
-		}
-		
-		if ($fail)
-		{
-			appcastr_die('Separator found even though a valid JSON formatted string wasn\'t found.');
-		}
-		else
-		{
-			// Description
-			$json['description'] = '<![CDATA[' . str_replace("\n", '<br>', trim($description)) . ']]>';
-			
-			// Publish date
-			$date = strtotime($json['date']);
-			if ($date === false)
-			{
-				appcastr_die_invalidformat('Invalid date.');
-			}
-			else
-			{
-				unset($json['date']);
-				$json['pubDate'] = date(DATE_ATOM, $date);
-			}
-			
-			// Filesize and content type
-			$cacheid = $json['enclosure']['url'];
-			if (!isset($data['cache'][$cacheid]))
-			{
-				$headers = get_remote_headers($json['enclosure']['url']);
-				$type = get_content_type($headers);
-				$length = get_content_length($headers);
-				
-				if (!$headers)
-				{
-					appcastr_die('Appcastr can\'t make a connection to <code>' . $json['enclosure']['url'] . '</code>, or the file doesn\'t exist.');
-				}
-				else
-				{
-					$json['enclosure']['type'] = $type;
-					$json['enclosure']['length'] = $length;
-					
-					$data['cache'][$cacheid] = array(
-						'type' => $type,
-						'length' => $length);
-				}
-			}
-			else
-			{
-				$json['enclosure']['type'] = $data['cache'][$cacheid]['type'];
-				$json['enclosure']['length'] = $data['cache'][$cacheid]['length'];
-			}
-			
-			// Still no content type?
-			if (!isset($json['enclosure']['type']))
-			{
-				$json['enclosure']['type'] = 'application/octet-stream';
-			}
-			
-			$items[] = $json;
+			unset($item['date']);
+			$item['pubDate'] = date(DATE_ATOM, $date);
 		}
 	}
-	else
+	
+	// Filesize and content type
+	$cacheid = $item['enclosure']['_params']['url'];
+	if (isset($item['enclosure']['_params']['type']) && isset($item['enclosure']['_params']['length']))
 	{
-		$itemarr[$i - 2][] = $iteminfo;
+		//
+	}
+	elseif (!isset($data['cache'][$cacheid]))
+	{
+		$headers = get_remote_headers($item['enclosure']['_params']['url']);
+		$type = get_content_type($headers);
+		$length = get_content_length($headers);
+		
+		if (!$headers)
+		{
+			appcastr_die('Appcastr can\'t make a connection to <code>' . $item['enclosure']['url'] . '</code>, or the file doesn\'t exist.');
+		}
+		else
+		{
+			$item['enclosure']['_params']['type'] = $type;
+			$item['enclosure']['_params']['length'] = $length;
+			
+			$data['cache'][$cacheid] = array(
+				'type' => $type,
+				'length' => $length);
+		}
+	}
+	elseif (isset($data['cache'][$cacheid]))
+	{
+		$item['enclosure']['_params']['type'] = $data['cache'][$cacheid]['type'];
+		$item['enclosure']['_params']['length'] = $data['cache'][$cacheid]['length'];
+	}
+	
+	// Still no content type?
+	if (!isset($item['enclosure']['_params']['type']))
+	{
+		$item['enclosure']['_params']['type'] = 'application/octet-stream';
 	}
 }
 
@@ -231,41 +207,70 @@ if ($data != $olddata)
 }
 
 // We got everything! Now to print out a lovely, formatted feed
-echo '<?xml version="1.0" encoding="utf-8"?>
+echo '<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"'
 . (appcast_info('type') == 'sparkledotnet' ? ' xmlns:sparkleDotNET="http://bitbucket.org/ikenndac/sparkledotnet"' : '') .
 ' xmlns:dc="http://purl.org/dc/elements/1.1/">
-<channel>';
+<channel>'."\n";
 
 echo '<title>' . (appcast_info('title') ? appcast_info('title') : 'Untitled') . '</title>';
 echo appcast_info('description') ? '<description>' . appcast_info('description') . '</description>' : '';
 echo appcast_info('language') ? '<language>' . appcast_info('language') . '</language>' : '';
 
-foreach ($items as $item)
+echo "\n";
+
+foreach ($items as &$item)
 {
-	echo '<item>' . array_to_xml($item) . '</item>';
+	echo "<item>\n" . array_to_xml($item) . "</item>\n";
 }
 
 echo '</channel>
 </rss>';
 
-function array_to_xml($arr)
+function array_to_xml($arr, $fromrecurse=false)
 {
 	$ret = '';
+	
 	foreach ($arr as $key => $value)
-	{		
-		$ret .= "<$key>";
+	{
+		// If we came here from a recurse, then _params would've been dealt with
+		if ($fromrecurse && $key == '_params')
+			break;
 		
+		// Array?
 		if (is_array($value))
 		{
-			$ret .= "\n" . array_to_xml($value);
+			$ret .= "<$key";
+			
+			$lencheck = 0;
+			
+			// Parameters
+			if (isset($value['_params']))
+			{
+				foreach ($value['_params'] as $key2 => $value2)
+				{
+					$ret .= " $key2=\"$value2\"";
+				}
+				
+				$lencheck = 1;
+			}
+			
+			// Do we have anything else now?
+			if (count($value) > $lencheck)
+			{
+				$ret .= ">\n" . array_to_xml($value, true) . "</$key>";
+			}
+			else
+			{
+				$ret .= " />";
+			}
 		}
 		else
 		{
-			$ret .= $value;
+			$ret .= "<$key>$value</$key>";
 		}
 		
-		$ret .= "</$key>\n";
+		$ret .= "\n";
 	}
 	return $ret;
 }
@@ -274,6 +279,20 @@ function appcast_info($key)
 {
 	global $data;
 	return $data['appcasts'][$_GET['id']][$key];
+}
+
+function get_items($id)
+{
+	$items = array();
+	try
+	{
+		$items = json_decode(file_get_contents('appcastr/' . $id), true);
+	}
+	catch (Exception $e)
+	{
+		appcastr_die('Could not decode `appcastr/' . $id . '`.<p>'.$e);
+	}
+	return $items;
 }
 
 function appcastr_die($message)
@@ -291,23 +310,26 @@ die('<!DOCTYPE html>
 
 body { background: #ebedea; color: #000; padding: 30px; font-size: 13px; font-family: "helvetica neue", helvetica, arial, sans-serif; }
 a { text-decoration: none; color: #4183C4; } a:hover { text-decoration: underline; }
-p { margin: 8px 0; }
-p, ul { line-height: 20px; }
+p, ul { margin: 8px 0; line-height: 20px; }
+ul { padding-left: 24px; }
 
 h1 { font-size: 20px; margin: 10px; padding: 0 0 4px 0; text-shadow: 0 1px 0 rgba(255,255,255,0.5); }
-h2 { font-size: 17px; margin: 4px 0; color: #333; }
-h3 { font-size: 14px; margin: 8px 0; color: #444; }
+h2 { font-size: 19px; margin: 24px 0 8px; color: #333; padding-bottom: 4px; border-bottom: 1px dotted #ccc; }
+h3 { font-size: 15px; margin: 8px 0; color: #444; }
+h4 { font-size: 14px; margin: 8px 0; color: #555; }
 
 .error { color: #f00; font-weight: bold; }
 
-#logout { float: right; position: relative; top: -56px; }
+#logout { position: absolute; right: 10px; top: -32px; }
 
 #wrap { margin: 0 auto; width: 800px; }
-#content { background: #fff; background: rgba(255,255,255,0.5); padding: 20px; border: 1px solid #dcdcea;
+#content { position: relative; background: #fff; background: rgba(255,255,255,0.75); padding: 20px; border: 1px solid #dcdcea;
 	box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+	-webkit-box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
 	border-radius: 4px;
 	-moz-border-radius: 4px;
 	-webkit-border-radius: 4px; }
+#content h2:first-child { margin-top: 0; }
 footer { float: right; margin-right: 10px; text-shadow: 0 1px 0 rgba(255,255,255,0.5); color: #aaa; font-size: 10px; }
 footer a { color: #888; }
 
