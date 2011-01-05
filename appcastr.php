@@ -139,7 +139,7 @@ if (!file_exists('appcastr/' . $_GET['id']))
 // A simple echo
 if (isset($_GET['echo']))
 {
-	exit(base64_decode($_GET['echo']));
+	exit(urldecode($_GET['echo']));
 }
 
 // Our items
@@ -158,7 +158,7 @@ foreach ($items as &$item)
 			// Don't override if we already have a link
 			if (!isset($item['sparkle:releaseNotesLink']))
 			{
-				$item['sparkle:releaseNotesLink'] = curPageURL() . '&amp;echo=' . base64_encode($item['description']);
+				$item['sparkle:releaseNotesLink'] = curPageURL() . '&amp;echo=' . urlencode($item['description']);
 			}
 		}
 		
