@@ -335,8 +335,8 @@ ul { padding-left: 24px; }
 
 h1 { font-size: 20px; margin: 10px; padding: 0 0 4px 0; text-shadow: 0 1px 0 rgba(255,255,255,0.5); }
 h2 { font-size: 19px; margin: 24px 0 8px; color: #333; padding-bottom: 4px; border-bottom: 1px dotted #ccc; }
-h3 { font-size: 15px; margin: 8px 0; color: #444; }
-h4 { font-size: 14px; margin: 8px 0; color: #555; }
+h3 { font-size: 15px; margin: 8px 0; color: #333; }
+h4 { font-size: 14px; margin: 8px 0; color: #333; }
 
 .error { color: #f00; font-weight: bold; }
 
@@ -354,9 +354,9 @@ footer { float: right; margin-right: 10px; text-shadow: 0 1px 0 rgba(255,255,255
 footer a { color: #888; }
 
 #background { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden; z-index: -1; }
-#background div:before { content: "\2668"; font-size: 1000px; opacity: 0.02;
+#background div:before { content: "\2668"; font-size: 1000px; opacity: 0.03;
 position: absolute; left: -100px; bottom: -380px; }
-#background div:after { content: "Appcastr."; font-size: 100px; opacity: 0.02;
+#background div:after { content: "Appcastr."; font-size: 100px; opacity: 0.03;
 position: absolute; left: 500px; bottom: 40px; }
 
 </style>
