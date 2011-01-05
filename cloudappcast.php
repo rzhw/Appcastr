@@ -44,10 +44,7 @@ $iteminfos = file('cloudappcast-' . $_GET['id'] . '.txt');
 $title = '';
 $items = array();
 $i = 0;
-$i_gotid = false;
-$i_gottitle = false;
-$i_gotversion = false;
-$i_gotdate = false;
+
 foreach ($iteminfos as $iteminfo)
 {
 	$iteminfo = trim($iteminfo);
@@ -69,90 +66,82 @@ foreach ($iteminfos as $iteminfo)
 	// And now for the rest
 	else
 	{
-		// The id to use for inserting into $items
-		$ii = $i - 2;
-		
-		// If we have a --- then the next line is a new thingy
+		// Did we just hit a separator?
 		if ($iteminfo == '---')
 		{
-			if ($i_gotdate)
+			$str = implode("\n", $itemarr[$i - 2]);
+			$json = array();
+			$description = '';
+			$fail = false;
+			
+			if (preg_match('/(\{(.*)\n\})(.*)/sm', $str, $regs))
 			{
-				$i_gotid = false;
-				$i_gottitle = false;
-				$i_gotversion = false;
-				$i_gotdate = false;
-				$i++;
+				$result = $regs[1];
+				$description = $regs[3];
+				
+				try
+				{
+					$json = json_decode($result, true);
+				}
+				catch (Exception $e)
+				{
+					$fail = true;
+				}
 			}
 			else
 			{
-				cac_die_invalidformat('Separator found between items even though the previous one didn\'t have one of the following; an id, title or date.');
+				$fail = true;
 			}
-		}
-		// Let's do some parsing!
-		else
-		{			
-			// The first line should have the id
-			if (!$i_gotid)
+			
+			if ($fail)
 			{
-				$i_gotid = true;
+				cac_die('Separator found even though a valid JSON formatted string wasn\'t found.');
+			}
+			else
+			{
+				// Description
+				$json['description'] = '<![CDATA[' . str_replace("\n", '<br>', trim($description)) . ']]>';
 				
-				// Store the id
-				$items[$ii]['id'] = $iteminfo;
-				
-				// Let's get the size while we're at it
-				if (!in_array($iteminfo, $sizecache))
-				{
-					$size = get_remote_file_size('http://cl.ly/' . $iteminfo . '/content');
-					if (!$size)
-					{
-						cac_die('CloudAppCast can\'t get a connection to <code>http://cl.ly/</code>, or the file doesn\'t exist.');
-					}
-					else
-					{
-						$sizecache[] = $iteminfo;
-						$sizecache[] = $size;
-						$items[$ii]['size'] = $size;
-						fwrite($sc, "$iteminfo\n$size\n");
-					}
-				}
-				else
-				{
-					// The size is the line after the id
-					$key = array_search($iteminfo, $sizecache);
-					$items[$ii]['size'] = $sizecache[$key + 1];
-				}
-			}
-			// Next is the title
-			elseif (!$i_gottitle)
-			{
-				$i_gottitle = true;
-				$items[$ii]['title'] = $iteminfo;
-			}
-			// Next is the version
-			elseif (!$i_gotversion)
-			{
-				$i_gotversion = true;
-				$items[$ii]['version'] = $iteminfo;
-			}
-			// Next is the date
-			elseif (!$i_gotdate)
-			{
-				$i_gotdate = true;
-				$date = strtotime($iteminfo);
+				// Publish date
+				$date = strtotime($json['date']);
 				if ($date === false)
 				{
 					cac_die_invalidformat('Invalid date.');
 				}
 				else
 				{
-					$items[$ii]['date'] = date(DATE_ATOM, $date);
+					unset($json['date']);
+					$json['pubDate'] = date(DATE_ATOM, $date);
 				}
+				
+				// Filesize
+				if (!in_array($json['enclosure']['url'], $sizecache))
+				{
+					$size = get_remote_file_size($json['enclosure']['url']);
+					
+					if (!$size)
+					{
+						cac_die('CloudAppCast can\'t make a connection to <code>' . $json['enclosure']['url'] . '</code>, or the file doesn\'t exist.');
+					}
+					else
+					{
+						$json['enclosure']['length'] = $size;
+						fwrite($sc, "{$json['enclosure']['url']}\n$size\n");
+					}
+				}
+				else
+				{
+					// The size is the line after the id
+					$key = array_search($iteminfo, $sizecache);
+					$json['enclosure']['length'] = $sizecache[$key + 1];
+				}
+				
+				$items[] = $json;
 			}
-			// The rest is the description
-			else
-			{
-				$items[$ii]['description'] .= $iteminfo . "\n";
-			}
+		}
+		else
+		{
+			$itemarr[$i - 2][] = $iteminfo;
 		}
 	}
 }
@@ -167,23 +156,31 @@ echo '<?xml version="1.0" encoding="utf-8"?>
 
 foreach ($items as $item)
 {
-echo '<item>
-<title>' . $item['title'] . '</title>
-<pubDate>' . $item['date'] . '</pubDate>
-<description><![CDATA[' . str_replace("\n", '<br />', $item['description']) . ']]></description>
-<enclosure length="' . $item['size'] . '" sparkle:version="' . $item['version'] . '" type="application/octet-stream" url="http://cl.ly/' . $item['id'] . '/content" />
-</item>
-';
+	echo '<item>' . array_to_xml($item) . '</item>';
 }
 
 echo '</channel>
 </rss>';
 
-// Error message handling
-function cac_die_invalidformat($extra = '')
+function array_to_xml($arr)
 {
-	cac_die('Improperly formatted item information file; please consult the docs.'
-		. (!empty($extra) ? '<p><strong>Details:</strong> ' . $extra : ''));
+	$ret = '';
+	foreach ($arr as $key => $value)
+	{
+		$ret .= "<$key>";
+		
+		if (is_array($value))
+		{
+			$ret .= array_to_xml($value);
+		}
+		else
+		{
+			$ret .= $value;
+		}
+		
+		$ret .= "</$key>";
+	}
+	return $ret;
 }
 
 function cac_die($message)
