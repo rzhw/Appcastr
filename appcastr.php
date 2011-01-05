@@ -20,9 +20,9 @@ if (!file_exists('appcastr-' . $_GET['id'] . '.txt'))
 	appcastr_die('AppCastr couldn\'t find the file associated with the given id.');
 }
 
-if (!is_writable('.'))
+if (!is_writable('appcastr-sizecache.txt'))
 {
-	appcastr_die('AppCastr doesn\'t have permissions to write inside its folder.');
+	appcastr_die('AppCastr doesn\'t have permissions to write to <code>appcastr-sizecache.txt</code>.');
 }
 
 if (isset($_GET['sparkledotnet']))
