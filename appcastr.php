@@ -17,15 +17,13 @@
  * along with this license.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-$cache_filename = 'appcastr/cache';
-
 // Potential errors
 if (!isset($_GET['id']))
 {
 	appcastr_die('Appcastr needs "id" to be passed in the GET parameters.');
 }
 
-if ($_GET['id'] == 'cache')
+if ($_GET['id'] == 'data')
 {
 	appcastr_die('Reserved id');
 }
@@ -40,27 +38,21 @@ if (!file_exists('appcastr/' . $_GET['id']))
 	appcastr_die('Appcastr couldn\'t find the file associated with the given id.');
 }
 
-if (!is_writable($cache_filename))
+if (!is_writable('appcastr/'))
 {
-	appcastr_die('Appcastr doesn\'t have permissions to write to <code>appcastr-sizecache.txt</code>.');
+	appcastr_die('Appcastr doesn\'t have permissions to write to the <code>appcastr</code> directory.');
 }
 
-if (isset($_GET['sparkledotnet']))
+$data = array();
+try
 {
-	$sparkledotnet = true;
+	$data = json_decode(file_get_contents('appcastr/data'), true);
 }
-
-// Size cache
-// Format: id, next line is size, etc
-if (!file_exists($cache_filename))
+catch (Exception $e)
 {
-	$cachearr = array();
+	appcastr_die('Could not decode `appcastr/data`.<p>'.$e);
 }
-else
-{
-	$cachearr = file($cache_filename, FILE_IGNORE_NEW_LINES);
-}
-$sc = fopen($cache_filename, 'a');
+$olddata = $data;
 
 // Item ids
 $iteminfos = file('appcastr/' . $_GET['id']);
@@ -74,121 +66,107 @@ foreach ($iteminfos as $iteminfo)
 {
 	$iteminfo = trim($iteminfo);
 	
-	// First line is title
-	if ($i == 0)
+	// Did we just hit a separator?
+	if ($iteminfo == '---')
 	{
-		$title = $iteminfo;
-		$i++;
-	}
-	// Second line must have ---
-	elseif ($i == 1)
-	{
-		if ($iteminfo == '---')
-			$i++;
-		else
-			appcastr_die_invalidformat('Initial separator not found or invalid.');
-	}
-	// And now for the rest
-	else
-	{
-		// Did we just hit a separator?
-		if ($iteminfo == '---')
+		$str = implode("\n", $itemarr[$i - 2]);
+		$json = array();
+		$description = '';
+		$fail = false;
+		
+		if (preg_match('/(\{(.*)\n\})(.*)/sm', $str, $regs))
 		{
-			$str = implode("\n", $itemarr[$i - 2]);
-			$json = array();
-			$description = '';
-			$fail = false;
+			$result = $regs[1];
+			$description = $regs[3];
 			
-			if (preg_match('/(\{(.*)\n\})(.*)/sm', $str, $regs))
+			try
 			{
-				$result = $regs[1];
-				$description = $regs[3];
-				
-				try
-				{
-					$json = json_decode($result, true);
-				}
-				catch (Exception $e)
-				{
-					$fail = true;
-				}
+				$json = json_decode($result, true);
 			}
-			else
+			catch (Exception $e)
 			{
 				$fail = true;
 			}
-			
-			if ($fail)
-			{
-				appcastr_die('Separator found even though a valid JSON formatted string wasn\'t found.');
-			}
-			else
-			{
-				// Description
-				$json['description'] = '<![CDATA[' . str_replace("\n", '<br>', trim($description)) . ']]>';
-				
-				// Publish date
-				$date = strtotime($json['date']);
-				if ($date === false)
-				{
-					appcastr_die_invalidformat('Invalid date.');
-				}
-				else
-				{
-					unset($json['date']);
-					$json['pubDate'] = date(DATE_ATOM, $date);
-				}
-				
-				// Filesize and content type
-				if (!in_array($json['enclosure']['url'], $cachearr))
-				{
-					$headers = get_remote_headers($json['enclosure']['url']);
-					$type = get_content_type($headers);
-					$length = get_content_length($headers);
-					
-					if (!$headers)
-					{
-						appcastr_die('Appcastr can\'t make a connection to <code>' . $json['enclosure']['url'] . '</code>, or the file doesn\'t exist.');
-					}
-					else
-					{
-						$json['enclosure']['type'] = $type;
-						$json['enclosure']['length'] = $length;
-						fwrite($sc, "{$json['enclosure']['url']}\n$type\n$length\n");
-					}
-				}
-				else
-				{
-					// The size is the line after the id, next line is content type
-					$key = array_search($iteminfo, $cachearr);
-					$json['enclosure']['type'] = $cachearr[$key + 1];
-					$json['enclosure']['length'] = $cachearr[$key + 2];
-				}
-				
-				// Still no content type?
-				if (!isset($json['enclosure']['type']))
-				{
-					$json['enclosure']['type'] = 'application/octet-stream';
-				}
-				
-				$items[] = $json;
-			}
 		}
 		else
 		{
-			$itemarr[$i - 2][] = $iteminfo;
+			$fail = true;
 		}
+		
+		if ($fail)
+		{
+			appcastr_die('Separator found even though a valid JSON formatted string wasn\'t found.');
+		}
+		else
+		{
+			// Description
+			$json['description'] = '<![CDATA[' . str_replace("\n", '<br>', trim($description)) . ']]>';
+			
+			// Publish date
+			$date = strtotime($json['date']);
+			if ($date === false)
+			{
+				appcastr_die_invalidformat('Invalid date.');
+			}
+			else
+			{
+				unset($json['date']);
+				$json['pubDate'] = date(DATE_ATOM, $date);
+			}
+			
+			// Filesize and content type
+			$cacheid = $json['enclosure']['url'];
+			if (!isset($data['cache'][$cacheid]))
+			{
+				$headers = get_remote_headers($json['enclosure']['url']);
+				$type = get_content_type($headers);
+				$length = get_content_length($headers);
+				
+				if (!$headers)
+				{
+					appcastr_die('Appcastr can\'t make a connection to <code>' . $json['enclosure']['url'] . '</code>, or the file doesn\'t exist.');
+				}
+				else
+				{
+					$json['enclosure']['type'] = $type;
+					$json['enclosure']['length'] = $length;
+					
+					$data['cache'][$cacheid] = array(
+						'type' => $type,
+						'length' => $length);
+				}
+			}
+			else
+			{
+				$json['enclosure']['type'] = $data['cache'][$cacheid]['type'];
+				$json['enclosure']['length'] = $data['cache'][$cacheid]['length'];
+			}
+			
+			// Still no content type?
+			if (!isset($json['enclosure']['type']))
+			{
+				$json['enclosure']['type'] = 'application/octet-stream';
+			}
+			
+			$items[] = $json;
+		}
+	}
+	else
+	{
+		$itemarr[$i - 2][] = $iteminfo;
 	}
 }
 
 // We got everything! Now to print out a lovely, formatted feed
 echo '<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"'
-. ($sparkledotnet ? ' xmlns:sparkleDotNET="http://bitbucket.org/ikenndac/sparkledotnet"' : '') . ' xmlns:dc="http://purl.org/dc/elements/1.1/">
-<channel>
-<title>' . $title . '</title>
-<description>Most recent changes with links to updates.</description>
-<language>en</language>';
+. (appcast_info('type') == 'sparkledotnet' ? ' xmlns:sparkleDotNET="http://bitbucket.org/ikenndac/sparkledotnet"' : '') .
+' xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>';
+
+echo '<title>' . (appcast_info('title') ? appcast_info('title') : 'Untitled') . '</title>';
+echo appcast_info('description') ? '<description>' . appcast_info('description') . '</description>' : '';
+echo appcast_info('language') ? '<language>' . appcast_info('language') . '</language>' : '';
 
 foreach ($items as $item)
 {
@@ -217,6 +195,12 @@ function array_to_xml($arr)
 		$ret .= "</$key>\n";
 	}
 	return $ret;
+}
+
+function appcast_info($key)
+{
+	global $data;
+	return $data['appcasts'][$_GET['id']][$key];
 }
 
 function appcastr_die($message)
