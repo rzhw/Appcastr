@@ -163,17 +163,16 @@ foreach ($items as &$item)
 		$item['description'] = '<![CDATA[' . str_replace("\n", '<br>', $item['description']) . ']]>';
 	}
 	
-	// Publish date
-	if (!isset($item['pubDate']))
+	// The publish date
+	if (isset($item['pubDate']))
 	{
-		$date = strtotime($item['date']);
+		$date = strtotime($item['pubDate']);
 		if ($date === false)
 		{
-			appcastr_die('Invalid date.');
+			appcastr_die('Invalid `pubDate` attribute.');
 		}
 		else
 		{
-			unset($item['date']);
 			$item['pubDate'] = date(DATE_ATOM, $date);
 		}
 	}
