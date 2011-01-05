@@ -2,43 +2,43 @@
 // Potential errors
 if (!isset($_GET['id']))
 {
-	cac_die('CloudAppCast needs "id" to be passed in the GET parameters.');
+	appcastr_die('AppCastr needs "id" to be passed in the GET parameters.');
 }
 
 if ($_GET['id'] == 'sizecache')
 {
-	cac_die('Reserved id');
+	appcastr_die('Reserved id');
 }
 
 if (strstr($_GET['id'], '/') || strstr($_GET['id'], '\\'))
 {
-	cac_die('CloudAppCast will not accept an id containing a slash.');
+	appcastr_die('AppCastr will not accept an id containing a slash.');
 }
 
-if (!file_exists('cloudappcast-' . $_GET['id'] . '.txt'))
+if (!file_exists('appcastr-' . $_GET['id'] . '.txt'))
 {
-	cac_die('CloudAppCast couldn\'t find the file associated with the given id.');
+	appcastr_die('AppCastr couldn\'t find the file associated with the given id.');
 }
 
 if (!is_writable('.'))
 {
-	cac_die('CloudAppCast doesn\'t have permissions to write inside its folder.');
+	appcastr_die('AppCastr doesn\'t have permissions to write inside its folder.');
 }
 
 // Size cache
 // Format: id, next line is size, etc
-if (!file_exists('cloudappcast-sizecache.txt'))
+if (!file_exists('appcastr-sizecache.txt'))
 {
 	$sizecache = array();
 }
 else
 {
-	$sizecache = file('cloudappcast-sizecache.txt', FILE_IGNORE_NEW_LINES);
+	$sizecache = file('appcastr-sizecache.txt', FILE_IGNORE_NEW_LINES);
 }
-$sc = fopen('cloudappcast-sizecache.txt', 'a');
+$sc = fopen('appcastr-sizecache.txt', 'a');
 
 // Item ids
-$iteminfos = file('cloudappcast-' . $_GET['id'] . '.txt');
+$iteminfos = file('appcastr-' . $_GET['id'] . '.txt');
 
 // Now let's get the ids
 $title = '';
@@ -61,7 +61,7 @@ foreach ($iteminfos as $iteminfo)
 		if ($iteminfo == '---')
 			$i++;
 		else
-			cac_die_invalidformat('Initial separator not found or invalid.');
+			appcastr_die_invalidformat('Initial separator not found or invalid.');
 	}
 	// And now for the rest
 	else
@@ -95,7 +95,7 @@ foreach ($iteminfos as $iteminfo)
 			
 			if ($fail)
 			{
-				cac_die('Separator found even though a valid JSON formatted string wasn\'t found.');
+				appcastr_die('Separator found even though a valid JSON formatted string wasn\'t found.');
 			}
 			else
 			{
@@ -106,7 +106,7 @@ foreach ($iteminfos as $iteminfo)
 				$date = strtotime($json['date']);
 				if ($date === false)
 				{
-					cac_die_invalidformat('Invalid date.');
+					appcastr_die_invalidformat('Invalid date.');
 				}
 				else
 				{
@@ -121,7 +121,7 @@ foreach ($iteminfos as $iteminfo)
 					
 					if (!$size)
 					{
-						cac_die('CloudAppCast can\'t make a connection to <code>' . $json['enclosure']['url'] . '</code>, or the file doesn\'t exist.');
+						appcastr_die('AppCastr can\'t make a connection to <code>' . $json['enclosure']['url'] . '</code>, or the file doesn\'t exist.');
 					}
 					else
 					{
@@ -183,12 +183,12 @@ function array_to_xml($arr)
 	return $ret;
 }
 
-function cac_die($message)
+function appcastr_die($message)
 {
 die('<!DOCTYPE html>
 <html>
 <head>
-<title>CloudAppCast Error</title>
+<title>AppCastr Error</title>
 <style type="text/css">
 body { background: #eef; color: #000; padding: 40px; font-size: 14px; font-family: "helvetica neue", helvetica, arial, sans-serif; }
 h1 { font-size: 20px; margin: 0; padding: 0; }
@@ -205,7 +205,7 @@ footer, footer a { color: #aaa; font-size: 10px; }
 <h1>Error!</h1>
 <p>' . $message . '</p>
 </div>
-<footer><p>CloudAppCast 0.2 &copy; <a href="http://rewrite.name/">Richard Z.H. Wang</a> 2010-2011</footer>
+<footer><p>AppCastr 0.2 &copy; <a href="http://rewrite.name/">Richard Z.H. Wang</a> 2010-2011</footer>
 </body>
 </html>');
 }
