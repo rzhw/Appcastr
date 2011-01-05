@@ -182,7 +182,8 @@ echo '</channel>
 // Error message handling
 function cac_die_invalidformat($extra = '')
 {
-	cac_die('Improperly formatted item information file; please consult the docs.' . (!empty($extra) ? ' <b>Details:</b> ' . $extra : ''));
+	cac_die('Improperly formatted item information file; please consult the docs.'
+		. (!empty($extra) ? '<p><strong>Details:</strong> ' . $extra : ''));
 }
 
 function cac_die($message)
@@ -192,15 +193,22 @@ die('<!DOCTYPE html>
 <head>
 <title>CloudAppCast Error</title>
 <style type="text/css">
-body { background: #eef; color: #000; padding: 16px; font-size: 14px; font-family: "helvetica neue", helvetica, arial, sans-serif; }
+body { background: #eef; color: #000; padding: 40px; font-size: 14px; font-family: "helvetica neue", helvetica, arial, sans-serif; }
 h1 { font-size: 20px; margin: 0; padding: 0; }
+#content { background: #fff; padding: 20px; border: 1px solid #dcdcea;
+border-radius: 4px;
+-moz-border-radius: 4px;
+-webkit-border-radius: 4px; }
+footer { float: right; margin-right: 10px; }
 footer, footer a { color: #aaa; font-size: 10px; }
 </style>
 </head>
 <body>
-<h1>CloudAppCast Error!</h1>
+<div id="content">
+<h1>Error!</h1>
 <p>' . $message . '</p>
-<footer><p>CloudAppCast 0.1 is a project from the weird and wonderful mind of <a href="http://a2h.uni.cc/">a2h</a></footer>
+</div>
+<footer><p>CloudAppCast 0.2 &copy; <a href="http://rewrite.name/">Richard Z.H. Wang</a> 2010-2011</footer>
 </body>
 </html>');
 }
