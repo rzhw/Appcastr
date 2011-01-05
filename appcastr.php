@@ -147,20 +147,22 @@ $items = get_items($_GET['id']);
 
 foreach ($items as &$item)
 {
-	// SparkleDotNET 0.1 unfortunately will stack overflow without "sparkle:releaseNotesLink".
-	// I'm not sure whether Sparkle takes <description>, but ehhh.
-	if ((appcast_info('format') == 'sparkledotnet' && appcast_info('formatVersion') == '0.1')
-		|| appcast_info('convertDescriptionToLink') === true)
+	// The description
+	if (isset($item['description']))
 	{
-		// Don't override if we already have a link
-		if (!isset($item['sparkle:releaseNotesLink']))
+		// SparkleDotNET 0.1 unfortunately will stack overflow without "sparkle:releaseNotesLink".
+		// I'm not sure whether Sparkle takes <description>, but ehhh.
+		if ((appcast_info('format') == 'sparkledotnet' && appcast_info('formatVersion') == '0.1')
+			|| appcast_info('convertDescriptionToLink') === true)
 		{
-			$item['sparkle:releaseNotesLink'] = curPageURL() . '&amp;echo=' . base64_encode($item['description']);
+			// Don't override if we already have a link
+			if (!isset($item['sparkle:releaseNotesLink']))
+			{
+				$item['sparkle:releaseNotesLink'] = curPageURL() . '&amp;echo=' . base64_encode($item['description']);
+			}
 		}
-	}
-	else
-	{
-		$item['description'] = '<![CDATA[' . str_replace("\n", '<br>', $item['description']) . ']]>';
+		
+		$item['description'] = '<![CDATA[' . $item['description'] . ']]>';
 	}
 	
 	// The publish date
