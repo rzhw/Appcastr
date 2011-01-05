@@ -1,28 +1,48 @@
 <?php
+/**
+ * Appcastr
+ * Copyright (c) 2011 Richard Z.H. Wang
+ * 
+ * This library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this license.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+$cache_filename = 'appcastr-cache.txt';
+
 // Potential errors
 if (!isset($_GET['id']))
 {
-	appcastr_die('AppCastr needs "id" to be passed in the GET parameters.');
+	appcastr_die('Appcastr needs "id" to be passed in the GET parameters.');
 }
 
-if ($_GET['id'] == 'sizecache')
+if ($_GET['id'] == 'cache')
 {
 	appcastr_die('Reserved id');
 }
 
 if (strstr($_GET['id'], '/') || strstr($_GET['id'], '\\'))
 {
-	appcastr_die('AppCastr will not accept an id containing a slash.');
+	appcastr_die('Appcastr will not accept an id containing a slash.');
 }
 
 if (!file_exists('appcastr-' . $_GET['id'] . '.txt'))
 {
-	appcastr_die('AppCastr couldn\'t find the file associated with the given id.');
+	appcastr_die('Appcastr couldn\'t find the file associated with the given id.');
 }
 
-if (!is_writable('appcastr-sizecache.txt'))
+if (!is_writable($cache_filename))
 {
-	appcastr_die('AppCastr doesn\'t have permissions to write to <code>appcastr-sizecache.txt</code>.');
+	appcastr_die('Appcastr doesn\'t have permissions to write to <code>appcastr-sizecache.txt</code>.');
 }
 
 if (isset($_GET['sparkledotnet']))
@@ -32,15 +52,15 @@ if (isset($_GET['sparkledotnet']))
 
 // Size cache
 // Format: id, next line is size, etc
-if (!file_exists('appcastr-sizecache.txt'))
+if (!file_exists('appcastr-cache.txt'))
 {
-	$sizecache = array();
+	$cachearr = array();
 }
 else
 {
-	$sizecache = file('appcastr-sizecache.txt', FILE_IGNORE_NEW_LINES);
+	$cachearr = file($cache_filename, FILE_IGNORE_NEW_LINES);
 }
-$sc = fopen('appcastr-sizecache.txt', 'a');
+$sc = fopen($cache_filename, 'a');
 
 // Item ids
 $iteminfos = file('appcastr-' . $_GET['id'] . '.txt');
@@ -119,29 +139,33 @@ foreach ($iteminfos as $iteminfo)
 					$json['pubDate'] = date(DATE_ATOM, $date);
 				}
 				
-				// Filesize
-				if (!in_array($json['enclosure']['url'], $sizecache))
+				// Filesize and content type
+				if (!in_array($json['enclosure']['url'], $cachearr))
 				{
-					$size = get_remote_file_size($json['enclosure']['url']);
+					$headers = get_remote_headers($json['enclosure']['url']);
+					$type = get_content_type($headers);
+					$length = get_content_length($headers);
 					
-					if (!$size)
+					if (!$headers)
 					{
-						appcastr_die('AppCastr can\'t make a connection to <code>' . $json['enclosure']['url'] . '</code>, or the file doesn\'t exist.');
+						appcastr_die('Appcastr can\'t make a connection to <code>' . $json['enclosure']['url'] . '</code>, or the file doesn\'t exist.');
 					}
 					else
 					{
-						$json['enclosure']['length'] = $size;
-						fwrite($sc, "{$json['enclosure']['url']}\n$size\n");
+						$json['enclosure']['type'] = $type;
+						$json['enclosure']['length'] = $length;
+						fwrite($sc, "{$json['enclosure']['url']}\n$type\n$length\n");
 					}
 				}
 				else
 				{
-					// The size is the line after the id
-					$key = array_search($iteminfo, $sizecache);
-					$json['enclosure']['length'] = $sizecache[$key + 1];
+					// The size is the line after the id, next line is content type
+					$key = array_search($iteminfo, $cachearr);
+					$json['enclosure']['type'] = $cachearr[$key + 1];
+					$json['enclosure']['length'] = $cachearr[$key + 2];
 				}
 				
-				// Filetype
+				// Still no content type?
 				if (!isset($json['enclosure']['type']))
 				{
 					$json['enclosure']['type'] = 'application/octet-stream';
@@ -200,7 +224,7 @@ function appcastr_die($message)
 die('<!DOCTYPE html>
 <html>
 <head>
-<title>AppCastr Error</title>
+<title>Appcastr Error</title>
 <style type="text/css">
 body { background: #eef; color: #000; padding: 40px; font-size: 14px; font-family: "helvetica neue", helvetica, arial, sans-serif; }
 h1 { font-size: 20px; margin: 0; padding: 0; }
@@ -217,13 +241,14 @@ footer, footer a { color: #aaa; font-size: 10px; }
 <h1>Error!</h1>
 <p>' . $message . '</p>
 </div>
-<footer><p>AppCastr 0.2 &copy; <a href="http://rewrite.name/">Richard Z.H. Wang</a> 2010-2011</footer>
+<footer><p>Appcastr 0.2 &copy; <a href="http://rewrite.name/">Richard Z.H. Wang</a> 2010-2011</footer>
 </body>
 </html>');
 }
 
-// From http://codesnippets.joyent.com/posts/show/1214
-function get_remote_file_size($url, $readable = true){
+// Based on code from http://codesnippets.joyent.com/posts/show/1214
+function get_remote_headers($url)
+{
    $parsed = parse_url($url);
    $host = $parsed["host"];
    $fp = @fsockopen($host, 80, $errno, $errstr, 20);
@@ -243,26 +268,31 @@ function get_remote_file_size($url, $readable = true){
 			$s = 'Location: ';
 			if(substr(strtolower ($header), 0, strlen($s)) == strtolower($s)) {
 				$url = trim(substr($header, strlen($s)));
-				return get_remote_file_size($url, $readable);
+				return get_remote_headers($url);
 			}
-			
-			// parse for content length
+   }
+   return $arr_headers;
+}
+function get_content_length($headers)
+{
+	foreach($headers as $header) {
        $s = "Content-Length: ";
        if(substr(strtolower ($header), 0, strlen($s)) == strtolower($s)) {
            $return = trim(substr($header, strlen($s)));
            break;
        }
    }
-   /*if($return && $readable) {
-			$size = round($return / 1024, 2);
-			$sz = "KB"; // Size In KB
-			if ($size > 1024) {
-				$size = round($size / 1024, 2);
-				$sz = "MB"; // Size in MB
-			}
-			$return = "$size $sz";
-   }*/
    return $return;
 }
-
+function get_content_type($headers)
+{
+	foreach($headers as $header) {
+       $s = "Content-Type: ";
+       if(substr(strtolower ($header), 0, strlen($s)) == strtolower($s)) {
+           $return = trim(substr($header, strlen($s)));
+           break;
+       }
+   }
+   return $return;
+}
 ?>
