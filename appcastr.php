@@ -136,13 +136,32 @@ if (!file_exists('appcastr/' . $_GET['id']))
 	appcastr_die('Appcastr couldn\'t find the file associated with the given id.');
 }
 
+// A simple echo
+if (isset($_GET['echo']))
+{
+	exit(base64_decode($_GET['echo']));
+}
+
 // Our items
 $items = get_items($_GET['id']);
 
 foreach ($items as &$item)
 {
-	// Description
-	//$item['description'] = '<![CDATA[' . str_replace("\n", '<br>', $item['description']) . ']]>';
+	// SparkleDotNET 0.1 unfortunately will stack overflow without "sparkle:releaseNotesLink".
+	// I'm not sure whether Sparkle takes <description>, but ehhh.
+	if ((appcast_info('format') == 'sparkledotnet' && appcast_info('formatVersion') == '0.1')
+		|| appcast_info('convertDescriptionToLink') === true)
+	{
+		// Don't override if we already have a link
+		if (!isset($item['sparkle:releaseNotesLink']))
+		{
+			$item['sparkle:releaseNotesLink'] = curPageURL() . '&amp;echo=' . base64_encode($item['description']);
+		}
+	}
+	else
+	{
+		$item['description'] = '<![CDATA[' . str_replace("\n", '<br>', $item['description']) . ']]>';
+	}
 	
 	// Publish date
 	if (!isset($item['pubDate']))
@@ -209,7 +228,7 @@ if ($data != $olddata)
 // We got everything! Now to print out a lovely, formatted feed
 echo '<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"'
-. (appcast_info('type') == 'sparkledotnet' ? ' xmlns:sparkleDotNET="http://bitbucket.org/ikenndac/sparkledotnet"' : '') .
+. (appcast_info('format') == 'sparkledotnet' ? ' xmlns:sparkleDotNET="http://bitbucket.org/ikenndac/sparkledotnet"' : '') .
 ' xmlns:dc="http://purl.org/dc/elements/1.1/">
 <channel>'."\n";
 
@@ -360,7 +379,20 @@ function appcastr_password($raw)
 	return hash('whirlpool', $salt . $raw);
 }
 
-// Based on code from http://codesnippets.joyent.com/posts/show/1214
+// Function from webcheatsheet.com/PHP/get_current_page_url.php
+function curPageURL() {
+ $pageURL = 'http';
+ if ($_SERVER["HTTPS"] == "on") {$pageURL .= "s";}
+ $pageURL .= "://";
+ if ($_SERVER["SERVER_PORT"] != "80") {
+  $pageURL .= $_SERVER["SERVER_NAME"].":".$_SERVER["SERVER_PORT"].$_SERVER["REQUEST_URI"];
+ } else {
+  $pageURL .= $_SERVER["SERVER_NAME"].$_SERVER["REQUEST_URI"];
+ }
+ return $pageURL;
+}
+
+// Based on code from codesnippets.joyent.com/posts/show/1214
 function get_remote_headers($url)
 {
    $parsed = parse_url($url);
