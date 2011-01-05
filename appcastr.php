@@ -25,6 +25,11 @@ if (!is_writable('.'))
 	appcastr_die('AppCastr doesn\'t have permissions to write inside its folder.');
 }
 
+if (isset($_GET['sparkledotnet']))
+{
+	$sparkledotnet = true;
+}
+
 // Size cache
 // Format: id, next line is size, etc
 if (!file_exists('appcastr-sizecache.txt'))
@@ -148,7 +153,8 @@ foreach ($iteminfos as $iteminfo)
 
 // We got everything! Now to print out a lovely, formatted feed
 echo '<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"'
+. ($sparkledotnet ? ' xmlns:sparkleDotNET="http://bitbucket.org/ikenndac/sparkledotnet"' : '') . ' xmlns:dc="http://purl.org/dc/elements/1.1/">
 <channel>
 <title>' . $title . '</title>
 <description>Most recent changes with links to updates.</description>
