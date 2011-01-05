@@ -141,6 +141,12 @@ foreach ($iteminfos as $iteminfo)
 					$json['enclosure']['length'] = $sizecache[$key + 1];
 				}
 				
+				// Filetype
+				if (!isset($json['enclosure']['type']))
+				{
+					$json['enclosure']['type'] = 'application/octet-stream';
+				}
+				
 				$items[] = $json;
 			}
 		}
@@ -172,19 +178,19 @@ function array_to_xml($arr)
 {
 	$ret = '';
 	foreach ($arr as $key => $value)
-	{
+	{		
 		$ret .= "<$key>";
 		
 		if (is_array($value))
 		{
-			$ret .= array_to_xml($value);
+			$ret .= "\n" . array_to_xml($value);
 		}
 		else
 		{
 			$ret .= $value;
 		}
 		
-		$ret .= "</$key>";
+		$ret .= "</$key>\n";
 	}
 	return $ret;
 }
