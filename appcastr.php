@@ -265,22 +265,23 @@ if (isset($_GET['admin']))
 								printf('<li>%s <small>(%s/%s)</small></small>
 									<a class="button" href="%s">Edit</a><a class="button" href="%s">Download (%sK)</a>
 									<span class="viewnotes"><a class="button" href="#">View Release Notes</a><br>%s</span>',
-									$item['title'],
-									$item['enclosure']['_params']['sparkle:version'],
-									$item['enclosure']['_params']['sparkle:shortVersionString'] ?
-										$item['enclosure']['_params']['sparkle:shortVersionString'] : '-',
-									curPageURL() . '&action=edititem&id=' . $appcast . '&title=' . urlencode($item['title']),
-									$item['enclosure']['_params']['url'],
-									$item['enclosure']['_params']['length'] != '' ?
+									htmlspecialchars($item['title']),
+									htmlspecialchars($item['enclosure']['_params']['sparkle:version']),
+									htmlspecialchars(
+										$item['enclosure']['_params']['sparkle:shortVersionString'] ?
+											$item['enclosure']['_params']['sparkle:shortVersionString'] : '-'),
+									htmlspecialchars(curPageURL() . '&action=edititem&id=' . $appcast . '&title=' . urlencode($item['title'])),
+									htmlspecialchars($item['enclosure']['_params']['url']),
+									htmlspecialchars($item['enclosure']['_params']['length'] != '' ?
 										round(($item['enclosure']['_params']['length'] ?
 											$item['enclosure']['_params']['length']
 											: $data['cache'][$item['enclosure']['_params']['url']]['length'])
 											/ 1024)
-										: '?',
+										: '?'),
 									$item['sparkle:releaseNotesLink'] ?
 										'<iframe class="notes" src="' . $item['sparkle:releaseNotesLink'] . '"></iframe>'
 										: '<blockquote class="notes">'
-											. ($item['description'] ? $item['description'] : '<em>No release notes provided</em>')
+											. htmlspecialchars($item['description'] ? $item['description'] : '<em>No release notes provided</em>')
 											. '</blockquote>');
 							}
 							
