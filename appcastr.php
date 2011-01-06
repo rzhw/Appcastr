@@ -44,6 +44,12 @@ if (isset($_GET['hash']))
 	appcastr_page('Your hashed password', '<p>' . appcastr_password($_GET['hash']));
 }
 
+// Nope.avi
+if (strstr($_GET['id'], '/') || strstr($_GET['id'], '\\'))
+{
+	appcastr_die('Appcastr will not accept an id containing a slash.');
+}
+
 // Admin?
 if (isset($_GET['admin']))
 {
@@ -73,6 +79,8 @@ if (isset($_GET['admin']))
 	}
 	else
 	{
+		ob_start();
+		
 		if (isset($_GET['logout']))
 		{
 			session_destroy();
@@ -83,58 +91,206 @@ if (isset($_GET['admin']))
 		switch ($_GET['section'])
 		{
 			case 'users':
-				$str = '<h2>Users</h2>
-				<ul>';
+				echo '<h2>Users</h2><ul>';
 				foreach ($data['users'] as $username => $passwordhash)
 				{
-					$str .= '<li>' . $username . ($username == $_SESSION['username'] ? ' <em>- that\'s you!</em>' : '');
+					echo '<li>' . $username . ($username == $_SESSION['username'] ? ' <em>- that\'s you!</em>' : '');
 				}
-				$str .= '</ul>';
+				echo '</ul>';
 				break;
 				
 			case 'appcasts':
-			default:
-				$str = '<h2>Appcasts</h2>';
-				foreach ($data['appcasts'] as $appcast => $params)
+			default:				
+				switch ($_GET['action'])
 				{
-					$str .= '
-					<h3>' . $params['title'] . '
-						<a class="button" href="' . curPageURL() . '&action=edit&id='.$appcast.'">Edit</a>
-						<a class="button" href="?id='.$appcast.'">Feed</a></h3>
-					<p>ID: ' . $appcast . '
-					<br>Format: ' . $params['format'] . ($params['formatVersion'] ? ' ('.$params['formatVersion'].')' : '') . '
-					<br>Description: ' . ($params['description'] ? $params['description'] : '<em>No description</em>' ). '
-					
-					<h4>Items
-						<a class="button" href="' . curPageURL() . '&action=items&id='.$appcast.'">Edit</a></h4>
-					<ul>';
-					
-					foreach (get_items($appcast) as $item)
-					{
-						$str .= sprintf('<li>%s <small>- version %s, displayed as %s</small>
-							<a class="button" href="%s">Download (%sK)</a><span class="viewnotes"><a class="button" href="#">View Release Notes</a><br>%s</span>',
-							$item['title'],
-							$item['enclosure']['_params']['sparkle:version'],
-							$item['enclosure']['_params']['sparkle:shortVersionString'] ?
-								$item['enclosure']['_params']['sparkle:shortVersionString'] : $item['enclosure']['_params']['sparkle:version'],
-							$item['enclosure']['_params']['url'],
-							round(($item['enclosure']['_params']['length'] ?
-								$item['enclosure']['_params']['length']
-								: $data['cache'][$item['enclosure']['_params']['url']]['length'])
-								/ 1024),
-							$item['sparkle:releaseNotesLink'] ?
-								'<iframe class="notes" src="' . $item['sparkle:releaseNotesLink'] . '"></iframe>'
-								: '<blockquote class="notes">'
-									. ($item['description'] ? $item['description'] : '<em>No description</em>')
-									. '</blockquote>');
-					}
-					
-					$str .= '</ul>';
+					case 'edititem':
+						
+						if (!isset($data['appcasts'][$_GET['id']]))
+						{
+							echo '<h2>Error!</h2>Appcast not found.';
+							break;
+						}
+						
+						$items = get_items($_GET['id']);
+						
+						if (isset($_GET['delete']))
+						{
+							if (!isset($_GET['yes']))
+							{
+								echo '<p>Are you <strong>absolutely</strong> sure you want to delete the item ' . urldecode($_GET['title']) . '?
+								<p>
+									<a href="' . curPageURL() . '&yes">Yes</a>';
+							}
+							else
+							{
+								$c = count($items);
+								for ($i=0; $i<$c; $i++)
+								{
+									if ($items[$i]['title'] == urldecode($_GET['title']))
+									{
+										unset($items[$i]);
+									}
+								}
+								save_items($items, $_GET['id']);
+							}
+							
+							break;
+						}
+						
+						if (isset($_POST['submit']))
+						{
+							if ($_POST['title'] == '' || $_POST['url'] == '' || $_POST['sparkle:version'] = '')
+							{
+								echo 'Required fields not found.';
+								break;
+							}
+							
+							$working_id = -1;
+							if (isset($_GET['title']))
+							{
+								$c = count($items);
+								for ($i=0; $i<$c; $i++)
+								{
+									if ($items[$i]['title'] == urldecode($_GET['title']))
+									{
+										$working_id = $i;
+										break;
+									}
+								}
+								
+								if ($working_id == -1)
+								{
+									echo 'Couldn\'t find the item to save to...';
+								}
+							}
+							else
+							{
+								$working_id = count($items);
+							}
+							
+							$ignore_if_blank = !isset($_GET['title']);
+							
+							set_array_value($items[$working_id], $ignore_if_blank, 'title', $_POST['title']);
+							set_array_value($items[$working_id], $ignore_if_blank, 'pubDate', $_POST['pubDate']);
+							set_array_value($items[$working_id], $ignore_if_blank, 'description', $_POST['description']);
+							set_array_value($items[$working_id], $ignore_if_blank, 'sparkle:releaseNotesLink', $_POST['sparkle:releaseNotesLink']);
+							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'url', $_POST['url']);
+							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkle:version', $_POST['sparkle:version']);
+							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkle:shortVersionString', $_POST['sparkle:shortVersionString']);
+							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkle:dsaSignature', $_POST['sparkle:dsaSignature']);
+							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkleDotNET:primaryInstallationFile', $_POST['sparkleDotNET:primaryInstallationFile']);
+							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkleDotNET:executableType', $_POST['sparkleDotNET:executableType']);
+							
+							save_items($items, $_GET['id']);
+							break;
+						}
+						
+						$title = urldecode($_GET['title']);
+						
+						echo '<h2>Appcasts - ' . ($title ? 'Edit item' : 'Add item') . '</h2>';
+						
+						$item = array();
+						foreach ($items as $it)
+						{
+							if ($it['title'] == urldecode($_GET['title']))
+							{
+								$item = $it;
+								break;
+							}
+						}
+						
+						echo '
+						<form action="' . curPageURL() . '" method="post">
+							<p><strong>Title (must be unique):</strong>
+								<input type="text" style="width: 200px;" name="title" value="' . $item['title'] . '" required>
+							<p><strong>Publish date (must be parsable by <a href="http://php.net/manual/en/function.strtotime.php"><code>strtotime</code></a>):</strong>
+								<input style="width: 300px;" type="text" name="pubDate" value="' . ($item['pubDate'] ? $item['pubDate'] : date(DATE_ATOM)) . '" required>
+							<p><strong>Version:</strong>
+								<input type="text" name="sparkle:version" value="' . $item['enclosure']['_params']['sparkle:version'] . '" required>, displayed as (optional):
+								<input type="text" name="sparkle:shortVersionString" value="' . $item['enclosure']['_params']['sparkle:shortVersionString'] . '">
+							<p><strong>Download link:</strong>
+								<input style="width: 100%;" type="url" name="url" value="' . $item['enclosure']['_params']['url'] . '" required>
+							<p><strong>DSA signature (optional):</strong>
+								<input style="width: 300px;" type="text" name="sparkle:dsaSignature" value="' . $item['enclosure']['_params']['sparkle:dsaSignature'] . '">
+							<p><strong>Release notes:</strong>
+								<table><tr>
+									<td>Enter a URL:<br>
+										<input type="url" name="sparkle:releaseNotesLink" value="' . $item['sparkle:releaseNotesLink'] . '"></td>
+									<td style="width: 5%; text-align: center;">-or-</td>
+									<td style="width: 75%;">
+										<textarea name="description" style="width: 100%; height: 128px;">' . $item['description'] . '</textarea></td>
+								</tr></table>';
+						
+						if ($data['appcasts'][$_GET['id']]['format'] == 'sparkledotnet')
+						{
+							echo '
+							<p><strong>Primary installation file (optional)</strong>
+								<input style="width: 200px;" type="text" name="sparkleDotNET:primaryInstallationFile"
+									value="' . $item['enclosure']['_params']['sparkleDotNET:primaryInstallationFile'] . '">
+							<p><strong>Installation file type</strong>
+								<select name="sparkleDotNET:executableType">
+									<option value="">Don\'t specify</option>
+									<option value="InstallShieldSetup"'
+										. ($item['enclosure']['_params']['sparkleDotNET:executableType'] == 'InstallShieldSetup' ? 'selected' : '')
+										. '>InstallShield (or compatible)</option>
+									<option value="InnoSetup"'
+										. ($item['enclosure']['_params']['sparkleDotNET:executableType'] == 'InnoSetup' ? 'selected' : '')
+										. '>Inno Setup (or compatible)</option>
+								</select>';
+						}
+						
+						echo '
+							<p style="text-align: right;">
+								<a href="' . curPageURL() . '&delete">Delete</a>
+								<input type="submit" name="submit" value="Save">
+						</form>';
+						break;
+					default:
+						echo '<h2>Appcasts</h2>';
+						foreach ($data['appcasts'] as $appcast => $params)
+						{
+							echo '
+							<h3>' . $params['title'] . '
+								<a class="button" href="' . curPageURL() . '&action=edit&id='.$appcast.'">Edit</a>
+								<a class="button" href="?id='.$appcast.'">Feed</a></h3>
+							<p>ID: ' . $appcast . '
+							<br>Format: ' . $params['format'] . ($params['formatVersion'] ? ' ('.$params['formatVersion'].')' : '') . '
+							<br>Description: ' . ($params['description'] ? $params['description'] : '<em>No description</em>' ). '
+							
+							<h4>Items
+								<a class="button" href="' . curPageURL() . '&action=edititem&id='.$appcast.'">Add</a></h4>
+							<ul>';
+							
+							foreach (get_items($appcast) as $item)
+							{
+								printf('<li>%s <small>(%s/%s)</small></small>
+									<a class="button" href="%s">Edit</a><a class="button" href="%s">Download (%sK)</a>
+									<span class="viewnotes"><a class="button" href="#">View Release Notes</a><br>%s</span>',
+									$item['title'],
+									$item['enclosure']['_params']['sparkle:version'],
+									$item['enclosure']['_params']['sparkle:shortVersionString'] ?
+										$item['enclosure']['_params']['sparkle:shortVersionString'] : '-',
+									curPageURL() . '&action=edititem&id=' . $appcast . '&title=' . urlencode($item['title']),
+									$item['enclosure']['_params']['url'],
+									round(($item['enclosure']['_params']['length'] ?
+										$item['enclosure']['_params']['length']
+										: $data['cache'][$item['enclosure']['_params']['url']]['length'])
+										/ 1024),
+									$item['sparkle:releaseNotesLink'] ?
+										'<iframe class="notes" src="' . $item['sparkle:releaseNotesLink'] . '"></iframe>'
+										: '<blockquote class="notes">'
+											. ($item['description'] ? $item['description'] : '<em>No description</em>')
+											. '</blockquote>');
+							}
+							
+							echo '</ul>';
+						}
+						break;
 				}
 				break;
 		}
 		
-		appcastr_page('Admin panel', $str .'		
+		appcastr_page('Admin panel', ob_get_clean() .'		
 		<div id="menu">
 			<a href="?admin&section=appcasts">Appcasts</a>
 			&middot; <a href="?admin&section=users">Users</a>
@@ -152,11 +308,6 @@ if (!isset($_GET['id']))
 if ($_GET['id'] == 'data')
 {
 	appcastr_die('Reserved id');
-}
-
-if (strstr($_GET['id'], '/') || strstr($_GET['id'], '\\'))
-{
-	appcastr_die('Appcastr will not accept an id containing a slash.');
 }
 
 if (!file_exists('appcastr/' . $_GET['id']))
@@ -196,15 +347,7 @@ foreach ($items as &$item)
 	// The publish date
 	if (isset($item['pubDate']))
 	{
-		$date = strtotime($item['pubDate']);
-		if ($date === false)
-		{
-			appcastr_die('Invalid `pubDate` attribute.');
-		}
-		else
-		{
-			$item['pubDate'] = date(DATE_ATOM, $date);
-		}
+		$item['pubDate'] = parse_date($item['pubDate']);
 	}
 	
 	// Filesize and content type
@@ -329,6 +472,26 @@ function appcast_info($key)
 	return $data['appcasts'][$_GET['id']][$key];
 }
 
+function parse_date($str)
+{
+	$date = strtotime($str);
+	if ($date === false)
+	{
+		appcastr_die('Invalid `pubDate` attribute.');
+	}
+	else
+	{
+		return date(DATE_ATOM, $date);
+	}
+}
+
+function set_array_value(&$array, $ignore_if_blank, $key, $value)
+{
+	// If value is not blank, OR if the value is blank and the key is set to something
+	if ($value || (!$ignore_if_blank && isset($array[$key])))
+		$array[$key] = $value;
+}
+
 function get_items($id)
 {
 	$items = array();
@@ -341,6 +504,15 @@ function get_items($id)
 		appcastr_die('Could not decode `appcastr/' . $id . '`.<p>'.$e);
 	}
 	return $items;
+}
+
+function save_items($newitems, $id)
+{
+	$f = fopen('appcastr/' . $id, 'w+');
+	fwrite($f, json_encode($newitems));
+	fclose($f);
+	
+	echo '<p>Success!';
 }
 
 function appcastr_die($message)
