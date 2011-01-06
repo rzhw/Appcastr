@@ -119,7 +119,7 @@ if (isset($_GET['admin']))
 							{
 								echo '<p>Are you <strong>absolutely</strong> sure you want to delete the item ' . urldecode($_GET['title']) . '?
 								<p>
-									<a href="' . curPageURL() . '&yes">Yes</a>';
+									<a class="button" href="' . curPageURL() . '&yes">Yes</a>';
 							}
 							else
 							{
@@ -175,7 +175,7 @@ if (isset($_GET['admin']))
 							set_array_value($items[$working_id], $ignore_if_blank, 'description', $_POST['description']);
 							set_array_value($items[$working_id], $ignore_if_blank, 'sparkle:releaseNotesLink', $_POST['sparkle:releaseNotesLink']);
 							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'url', $_POST['url']);
-							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkle:version', $_POST['sparkle:version']);
+							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkle:version', $_POST['version']);
 							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkle:shortVersionString', $_POST['sparkle:shortVersionString']);
 							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkle:dsaSignature', $_POST['sparkle:dsaSignature']);
 							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkleDotNET:primaryInstallationFile', $_POST['sparkleDotNET:primaryInstallationFile']);
@@ -206,7 +206,7 @@ if (isset($_GET['admin']))
 							<p><strong>Publish date (must be parsable by <a href="http://php.net/manual/en/function.strtotime.php"><code>strtotime</code></a>):</strong>
 								<input style="width: 300px;" type="text" name="pubDate" value="' . ($item['pubDate'] ? $item['pubDate'] : date(DATE_ATOM)) . '" required>
 							<p><strong>Version:</strong>
-								<input type="text" name="sparkle:version" value="' . $item['enclosure']['_params']['sparkle:version'] . '" required>, displayed as (optional):
+								<input type="text" name="version" value="' . $item['enclosure']['_params']['sparkle:version'] . '" required>, displayed as (optional):
 								<input type="text" name="sparkle:shortVersionString" value="' . $item['enclosure']['_params']['sparkle:shortVersionString'] . '">
 							<p><strong>Download link:</strong>
 								<input style="width: 100%;" type="url" name="url" value="' . $item['enclosure']['_params']['url'] . '" required>
@@ -246,7 +246,7 @@ if (isset($_GET['admin']))
 						</form>';
 						break;
 					default:
-						echo '<h2>Appcasts</h2>';
+						echo '<h2>Appcasts <a class="button" href="' . curPageURL() . '&action=edit">Add</a></h2>';
 						foreach ($data['appcasts'] as $appcast => $params)
 						{
 							echo '
@@ -255,7 +255,6 @@ if (isset($_GET['admin']))
 								<a class="button" href="?id='.$appcast.'">Feed</a></h3>
 							<p>ID: ' . $appcast . '
 							<br>Format: ' . $params['format'] . ($params['formatVersion'] ? ' ('.$params['formatVersion'].')' : '') . '
-							<br>Description: ' . ($params['description'] ? $params['description'] : '<em>No description</em>' ). '
 							
 							<h4>Items
 								<a class="button" href="' . curPageURL() . '&action=edititem&id='.$appcast.'">Add</a></h4>
@@ -272,14 +271,16 @@ if (isset($_GET['admin']))
 										$item['enclosure']['_params']['sparkle:shortVersionString'] : '-',
 									curPageURL() . '&action=edititem&id=' . $appcast . '&title=' . urlencode($item['title']),
 									$item['enclosure']['_params']['url'],
-									round(($item['enclosure']['_params']['length'] ?
-										$item['enclosure']['_params']['length']
-										: $data['cache'][$item['enclosure']['_params']['url']]['length'])
-										/ 1024),
+									$item['enclosure']['_params']['length'] != '' ?
+										round(($item['enclosure']['_params']['length'] ?
+											$item['enclosure']['_params']['length']
+											: $data['cache'][$item['enclosure']['_params']['url']]['length'])
+											/ 1024)
+										: '?',
 									$item['sparkle:releaseNotesLink'] ?
 										'<iframe class="notes" src="' . $item['sparkle:releaseNotesLink'] . '"></iframe>'
 										: '<blockquote class="notes">'
-											. ($item['description'] ? $item['description'] : '<em>No description</em>')
+											. ($item['description'] ? $item['description'] : '<em>No release notes provided</em>')
 											. '</blockquote>');
 							}
 							
@@ -392,9 +393,7 @@ foreach ($items as &$item)
 // Any data changes?
 if ($data != $olddata)
 {
-	$dataf = fopen('appcastr/data', 'w+');
-	fwrite($dataf, json_encode($data));
-	fclose($dataf);
+	save_data();
 }
 
 // We got everything! Now to print out a lovely, formatted feed
@@ -515,6 +514,14 @@ function save_items($newitems, $id)
 	echo '<p>Success!';
 }
 
+function save_data()
+{
+	global $data;
+	$f = fopen('appcastr/data', 'w+');
+	fwrite($f, json_encode($data));
+	fclose($f);
+}
+
 function appcastr_die($message)
 {
 	appcastr_page('Error!', '<p>' . $message);
@@ -538,12 +545,17 @@ h3 { font-size: 15px; margin: 8px 0; color: #333; }
 h4 { font-size: 14px; margin: 8px 0; color: #333; }
 
 a { text-decoration: none; color: #4183C4; } a:hover { text-decoration: underline; }
-.button, .button.disabled:hover { margin-left: 2px; padding: 2px 7px; background: #eee; border: 1px solid #ddd; color: #444;
-	font-size: 10px; font-weight: bold;
+.button, .button.disabled:hover { margin-left: 2px; padding: 2px 7px;
+	background: #eee; border: 1px solid #ddd; color: #999;
+	position: relative; top: -1px;
+	font-size: 75%; font-weight: bold;
 	border-radius: 3px;
 	-moz-border-radius: 3px;
-	-webkit-border-radius: 3px; }
-.button:hover { text-decoration: none; background: #eaeaea; border: 1px solid #ccc; }
+	-webkit-border-radius: 3px;
+	transition: 0.2s all;
+	-moz-transition: 0.2s all;
+	-webkit-transition: 0.2s all; }
+.button:hover { text-decoration: none; background: #eaeaea; border: 1px solid #ccc; color: #444; }
 .button.disabled, .button.disabled:hover { color: #aaa; }
 
 .error { color: #f00; font-weight: bold; }
