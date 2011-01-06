@@ -112,12 +112,16 @@ if (isset($_GET['admin']))
 					foreach (get_items($appcast) as $item)
 					{
 						$str .= sprintf('<li>%s <small>- version %s, displayed as %s</small>
-							<a class="button" href="%s">Download</a><span class="viewnotes"><a class="button" href="#">View Release Notes</a><br>%s</span>',
+							<a class="button" href="%s">Download (%sK)</a><span class="viewnotes"><a class="button" href="#">View Release Notes</a><br>%s</span>',
 							$item['title'],
 							$item['enclosure']['_params']['sparkle:version'],
 							$item['enclosure']['_params']['sparkle:shortVersionString'] ?
 								$item['enclosure']['_params']['sparkle:shortVersionString'] : $item['enclosure']['_params']['sparkle:version'],
 							$item['enclosure']['_params']['url'],
+							round(($item['enclosure']['_params']['length'] ?
+								$item['enclosure']['_params']['length']
+								: $data['cache'][$item['enclosure']['_params']['url']]['length'])
+								/ 1024),
 							$item['sparkle:releaseNotesLink'] ?
 								'<iframe class="notes" src="' . $item['sparkle:releaseNotesLink'] . '"></iframe>'
 								: '<blockquote class="notes">'
