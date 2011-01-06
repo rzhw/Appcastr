@@ -112,16 +112,17 @@ if (isset($_GET['admin']))
 					foreach (get_items($appcast) as $item)
 					{
 						$str .= sprintf('<li>%s <small>- version %s, displayed as %s</small>
-							<a class="button" href="%s">Download</a> %s<br><blockquote>%s</blockquote>',
+							<a class="button" href="%s">Download</a><span class="viewnotes"><a class="button" href="#">View Release Notes</a><br>%s</span>',
 							$item['title'],
 							$item['enclosure']['_params']['sparkle:version'],
 							$item['enclosure']['_params']['sparkle:shortVersionString'] ?
 								$item['enclosure']['_params']['sparkle:shortVersionString'] : $item['enclosure']['_params']['sparkle:version'],
 							$item['enclosure']['_params']['url'],
 							$item['sparkle:releaseNotesLink'] ?
-								'<a class="button" href="' . $item['sparkle:releaseNotesLink'] . '">(release notes)</a>'
-								: '<span class="button disabled">Release Notes</span>',
-							$item['description'] ? $item['description'] : '<em>No description</em>');
+								'<iframe class="notes" src="' . $item['sparkle:releaseNotesLink'] . '"></iframe>'
+								: '<blockquote class="notes">'
+									. ($item['description'] ? $item['description'] : '<em>No description</em>')
+									. '</blockquote>');
 					}
 					
 					$str .= '</ul>';
@@ -370,7 +371,11 @@ a { text-decoration: none; color: #4183C4; } a:hover { text-decoration: underlin
 .button.disabled, .button.disabled:hover { color: #aaa; }
 
 .error { color: #f00; font-weight: bold; }
-blockquote { margin: 8px 0; padding: 12px; border: 1px dashed #ccc; }
+
+.viewnotes .notes { display: none; }
+.viewnotes:active .notes { display: block; }
+blockquote.notes { margin: 8px 0; padding: 12px; border: 1px dashed #bbb; }
+iframe.notes { margin: 8px 0; width: 100%; height: 300px; border: 1px dashed #bbb; }
 
 #menu { position: absolute; right: 10px; top: -32px; }
 
