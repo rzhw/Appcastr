@@ -647,6 +647,8 @@ function get_remote_headers($url)
 }
 function get_content_length($headers)
 {
+	if (is_array($headers))
+	{
 	foreach($headers as $header) {
        $s = "Content-Length: ";
        if(substr(strtolower ($header), 0, strlen($s)) == strtolower($s)) {
@@ -654,10 +656,13 @@ function get_content_length($headers)
            break;
        }
    }
-   return $return;
+   }
+   return '0';
 }
 function get_content_type($headers)
 {
+	if (is_array($headers))
+	{
 	foreach($headers as $header) {
        $s = "Content-Type: ";
        if(substr(strtolower ($header), 0, strlen($s)) == strtolower($s)) {
@@ -665,6 +670,7 @@ function get_content_type($headers)
            break;
        }
    }
-   return $return;
+   }
+   return 'application/octect-stream';
 }
 ?>
