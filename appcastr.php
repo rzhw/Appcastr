@@ -333,8 +333,6 @@ foreach ($items as &$item)
     // The description
     if (isset($item['description']))
     {
-        // SparkleDotNET 0.1 unfortunately will stack overflow without "sparkle:releaseNotesLink".
-        // I'm not sure whether Sparkle takes <description>, but ehhh.
         if ((appcast_info('format') == 'sparkledotnet' && appcast_info('formatVersion') == '0.1')
             || appcast_info('convertDescriptionToLink') === true)
         {
