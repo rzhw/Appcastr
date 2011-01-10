@@ -163,24 +163,26 @@ if (isset($_GET['admin']))
 									echo 'Couldn\'t find the item to save to...';
 								}
 							}
-							else
-							{
-								$working_id = count($items);
-							}
 							
 							$ignore_if_blank = !isset($_GET['title']);
+                            
+                            $arr_to_save = !isset($_GET['title']) ? array() : $items[$working_id];
+							set_array_value($arr_to_save, $ignore_if_blank, 'title', $_POST['title']);
+							set_array_value($arr_to_save, $ignore_if_blank, 'pubDate', $_POST['pubDate']);
+							set_array_value($arr_to_save, $ignore_if_blank, 'description', $_POST['description']);
+							set_array_value($arr_to_save, $ignore_if_blank, 'sparkle:releaseNotesLink', $_POST['sparkle:releaseNotesLink']);
+							set_array_value($arr_to_save['enclosure']['_params'], $ignore_if_blank, 'url', $_POST['url']);
+							set_array_value($arr_to_save['enclosure']['_params'], $ignore_if_blank, 'sparkle:version', $_POST['version']);
+							set_array_value($arr_to_save['enclosure']['_params'], $ignore_if_blank, 'sparkle:shortVersionString', $_POST['sparkle:shortVersionString']);
+							set_array_value($arr_to_save['enclosure']['_params'], $ignore_if_blank, 'sparkle:dsaSignature', $_POST['sparkle:dsaSignature']);
+							set_array_value($arr_to_save['enclosure']['_params'], $ignore_if_blank, 'sparkleDotNET:primaryInstallationFile', $_POST['sparkleDotNET:primaryInstallationFile']);
+							set_array_value($arr_to_save['enclosure']['_params'], $ignore_if_blank, 'sparkleDotNET:executableType', $_POST['sparkleDotNET:executableType']);
 							
-							set_array_value($items[$working_id], $ignore_if_blank, 'title', $_POST['title']);
-							set_array_value($items[$working_id], $ignore_if_blank, 'pubDate', $_POST['pubDate']);
-							set_array_value($items[$working_id], $ignore_if_blank, 'description', $_POST['description']);
-							set_array_value($items[$working_id], $ignore_if_blank, 'sparkle:releaseNotesLink', $_POST['sparkle:releaseNotesLink']);
-							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'url', $_POST['url']);
-							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkle:version', $_POST['version']);
-							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkle:shortVersionString', $_POST['sparkle:shortVersionString']);
-							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkle:dsaSignature', $_POST['sparkle:dsaSignature']);
-							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkleDotNET:primaryInstallationFile', $_POST['sparkleDotNET:primaryInstallationFile']);
-							set_array_value($items[$working_id]['enclosure']['_params'], $ignore_if_blank, 'sparkleDotNET:executableType', $_POST['sparkleDotNET:executableType']);
-							
+							if (!isset($_GET['title']))
+                                $items = array_insert($items, 0, $arr_to_save);
+                            else
+                                $items[$working_id] = $arr_to_save;
+                            
 							save_items($items, $_GET['id']);
 							break;
 						}
@@ -281,7 +283,7 @@ if (isset($_GET['admin']))
 									$item['sparkle:releaseNotesLink'] ?
 										'<iframe class="notes" src="' . $item['sparkle:releaseNotesLink'] . '"></iframe>'
 										: '<blockquote class="notes">'
-											. htmlspecialchars($item['description'] ? $item['description'] : '<em>No release notes provided</em>')
+											. ($item['description'] ? $item['description'] : '<em>No release notes provided</em>')
 											. '</blockquote>');
 							}
 							
@@ -343,7 +345,7 @@ foreach ($items as &$item)
 			}
 		}
 		
-		$item['description'] = '<![CDATA[' . $item['description'] . ']]>';
+		unset($item['description']);
 	}
 	
 	// The publish date
@@ -489,7 +491,12 @@ function set_array_value(&$array, $ignore_if_blank, $key, $value)
 {
 	// If value is not blank, OR if the value is blank and the key is set to something
 	if ($value || (!$ignore_if_blank && isset($array[$key])))
-		$array[$key] = $value;
+	{
+		if ($value)
+			$array[$key] = $value;
+		else
+			unset($array[$key]);
+	}
 }
 
 function get_items($id)
@@ -600,6 +607,15 @@ position: absolute; left: 500px; bottom: 40px; }
 </html>');
 }
 
+function array_insert($array,$pos,$val)
+{
+    $array2 = array_splice($array,$pos);
+    $array[] = $val;
+    $array = array_merge($array,$array2);
+  
+    return $array;
+}
+
 function appcastr_password($raw)
 {
 	global $salt;
@@ -653,7 +669,7 @@ function get_content_length($headers)
 	foreach($headers as $header) {
        $s = "Content-Length: ";
        if(substr(strtolower ($header), 0, strlen($s)) == strtolower($s)) {
-           $return = trim(substr($header, strlen($s)));
+           return trim(substr($header, strlen($s)));
            break;
        }
    }
@@ -667,7 +683,7 @@ function get_content_type($headers)
 	foreach($headers as $header) {
        $s = "Content-Type: ";
        if(substr(strtolower ($header), 0, strlen($s)) == strtolower($s)) {
-           $return = trim(substr($header, strlen($s)));
+           return trim(substr($header, strlen($s)));
            break;
        }
    }
